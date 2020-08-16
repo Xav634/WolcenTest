@@ -94,16 +94,20 @@ class Vec2D
 	
 };
 
-static const int MAX_DISTANCE_TO_RESTART_POWER = 1000;
-static const int MAX_DISTANCE_TO_ACTIVE_BOOST = 6000;
+static const int MAX_DISTANCE_TO_ACTIVE_BOOST = 5000;
 static const int MAX_ANGLE_TO_ACTIVE_BOOST = 5;
 static const int MAX_ANGLE_ISINSIGHTTOCHECKPOINT = 30;
 static const int MAX_ANGLE_MANAGE_POWER = 90;
-static const int MAX_ANGLE_CHECKDIST = 15;
-static const int MAX_DISTANCE_START_DECELARATION = 1600;
-static const int MAX_DISTANCE_CLOSERANGE_TO_OPPONENT = 1000;
-static const int MAX_DISTANCE_CHECKPOINT_TOSTART_SHIELD = 1800;
+static const int MAX_ANGLE_CHECKDIST = 10;
+static const int RADIUS_POD = 400;
+static const int RADIUS_CHECKPOINT = 600;
+static const int MAX_DISTANCE_TO_RESTART_POWER = RADIUS_CHECKPOINT + RADIUS_POD;
+static const int MAX_DISTANCE_CLOSERANGE_TO_OPPONENT = RADIUS_POD + RADIUS_POD + 40;
+static const int MAX_DISTANCE_START_DECELARATION = RADIUS_CHECKPOINT + RADIUS_CHECKPOINT + RADIUS_POD;
 
+
+static int  iPreviousDistanceCheckPoint = 0;
+static bool Current = 0;
 
 
 static bool IsInAngleRange(const int angle, const int AngleMax)
@@ -136,28 +140,20 @@ int main()
         int iPower = 100;  
         bool needShield = false;
         Vec2D<float> vDistanceMainToOpponentPod = vPodOpponentGlobalPosition - vPodMainGlobalPosition;
-        Vec2D<float> vDistanceCheckPointToOpponent = vPodOpponentGlobalPosition - vCheckPointGlobalPosition;
-        Vec2D<float> vDistanceCheckPointToMainPod = vPodMainGlobalPosition - vCheckPointGlobalPosition;
-        Vec2D<float> vDistanceCheckPointToOpponentNormalize = vDistanceCheckPointToOpponent;
-        vDistanceCheckPointToOpponentNormalize.Normalize();
-        Vec2D<float> vDistanceCheckPointToMainPodNormalize = vDistanceCheckPointToMainPod;
-        vDistanceCheckPointToMainPodNormalize.Normalize();
-        // Active le shlied quand tu es derriere lui et pres et que tu arrive sur un check point
+        Vec2D<float> vDistanceOpponentToCheckPoint = vCheckPointGlobalPosition - vPodOpponentGlobalPosition;
+
+                               
+        float currentLenghtDistanceCheckpointToOpponent = abs(vDistanceOpponentToCheckPoint.GetLength());
+        float currentLenghtDistanceMainToOpponent  = abs(vDistanceMainToOpponentPod.GetLength());
         
-        float dotProd = Vec2D<float>::Dot(vDistanceCheckPointToOpponentNormalize, vDistanceCheckPointToMainPodNormalize);
-         cerr << "DISTANCE" << abs(vDistanceMainToOpponentPod.GetLength()) << endl;
-        if(abs(vDistanceMainToOpponentPod.GetLength()) < MAX_DISTANCE_CLOSERANGE_TO_OPPONENT)
-        {            
-            if(nextCheckpointDist < MAX_DISTANCE_CHECKPOINT_TOSTART_SHIELD)
+        if( currentLenghtDistanceMainToOpponent < MAX_DISTANCE_CLOSERANGE_TO_OPPONENT)
+        {   
+            if(currentLenghtDistanceCheckpointToOpponent < nextCheckpointDist)
             {
                 needShield = true;
             }
-            else if( dotProd < 0)
-            {
-                needShield = true;               
-            }            
-        }        
-
+              
+        }
         
         if(IsInAngleRange(nextCheckpointAngle, MAX_ANGLE_ISINSIGHTTOCHECKPOINT) == false)
         { // not in good way for the next check point so stop power to abord inertie.
@@ -170,8 +166,7 @@ int main()
                     {
                         // Power : is comute to lerp with angle to next check point : if it's a big angle we have a little power
                         iPower = (int)(((float)MAX_ANGLE_MANAGE_POWER/(float)nextCheckpointAngle)*100.0f);
-                        iPower = min((abs(iPower)), 100);// secu min
-                        cerr << "PWER 1" << endl;
+                        iPower = 100-min((abs(iPower)), 100);// secu min                       
                     }
                     else 
                     {
@@ -187,17 +182,18 @@ int main()
        }       
        else if(IsInAngleRange(nextCheckpointAngle, MAX_ANGLE_CHECKDIST) == true)
        {
-            if(nextCheckpointDist < MAX_DISTANCE_START_DECELARATION)
-            {
-               
-                iPower = (int)(((float)nextCheckpointDist/(float)MAX_DISTANCE_START_DECELARATION)*140.0f); 
-                iPower = min((abs(iPower)), 100);// secu min
-                cerr << "PWER 2" << endl;
-                
-            }           
-       }      
+           if( nextCheckpointDist < MAX_DISTANCE_START_DECELARATION)
+           {
+                iPower = (int)(((float)nextCheckpointDist/(float)MAX_DISTANCE_TO_RESTART_POWER));                 
+                iPower = 100 - min((abs(iPower)), 100);// secu min  
+           }
+           
+           
+       } 
+      
+       iPreviousDistanceCheckPoint = nextCheckpointDist;
        
-       bool canActiveBoost = iPower == 100 && IsInAngleRange(nextCheckpointAngle, MAX_ANGLE_TO_ACTIVE_BOOST) && nextCheckpointDist > MAX_DISTANCE_TO_ACTIVE_BOOST;
+       bool canActiveBoost = iPower == 100 && IsInAngleRange(nextCheckpointAngle, MAX_ANGLE_TO_ACTIVE_BOOST) && nextCheckpointDist > MAX_DISTANCE_TO_ACTIVE_BOOST && needShield == false;
        if(canActiveBoost)       
        {
            cout << nextCheckpointX << " " << nextCheckpointY << " BOOST " << nextCheckpointDist << " " << nextCheckpointAngle << " " << vDistanceMainToOpponentPod.GetLength() << endl;                       
